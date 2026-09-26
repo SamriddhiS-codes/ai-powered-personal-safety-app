@@ -1,13 +1,13 @@
 server:
   port: 8080
-
+ 
 spring:
   application:
     name: ai-powered-personal-safety-app
   datasource:
     url: jdbc:postgresql://localhost:5432/safety_app
-    username: safety_app
-    password: safety_app
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
   jpa:
     hibernate:
       ddl-auto: validate   # schema is managed explicitly via docs/DB_SCHEMA.sql
@@ -15,10 +15,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
-
+ 
 ml-service:
   base-url: http://localhost:8000
-
+ 
 app:
   security:
     alert-timestamp-tolerance-minutes: 5
