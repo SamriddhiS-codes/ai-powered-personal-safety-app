@@ -1,0 +1,24 @@
+# --- Java / Spring Boot (backend/) ---
+backend/target/
+*.class
+*.jar
+!maven-wrapper.jar
+
+# --- Python / ML service (ml-service/) ---
+ml-service/venv/
+ml-service/__pycache__/
+ml-service/**/__pycache__/
+ml-service/*.pyc
+ml-service/models/
+ml-service/data/
+
+# --- IDE / OS clutter ---
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# --- Environment secrets ---
+.env
+*.env.local
