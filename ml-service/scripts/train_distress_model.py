@@ -1,19 +1,19 @@
 """
 Trains the distress-sound detector (scream vs. non-scream) on the Kaggle
 Human Screaming Detection Dataset.
-
+ 
 Expected data layout after running download_datasets.py:
     ml-service/data/scream/
         scream/*.wav
         not_scream/*.wav
   (adjust GLOB patterns below to match the actual folder names in the
    dataset you download — Kaggle dataset internal structure can vary)
-
+ 
 This is a starting point, not a finished pipeline: run it, look at the
 validation accuracy, and iterate (more data augmentation, deeper CNN,
 different features) with your team before treating a number as final.
 """
-
+ 
 import glob
 import os
 import numpy as np
@@ -21,96 +21,86 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
 from sklearn.metrics import classification_report
-
+ 
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from app.features import extract_mel_spectrogram
-
+from app.features import extract_mel_spectrogram, pad_or_truncate_spectrogram
+from app.model_arch import DistressCNN
+ 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "scream")
 MODEL_OUT = os.path.join(os.path.dirname(__file__), "..", "models", "distress_model.pt")
 N_MELS = 128
 FIXED_FRAMES = 173  # ~4 seconds at default hop length; pad/truncate to this
-
-
+ 
+ 
 class ScreamDataset(Dataset):
     def __init__(self, positive_glob: str, negative_glob: str):
         self.paths = []
         self.labels = []
-        for p in glob.glob(positive_glob):
+        for p in glob.glob(positive_glob, recursive=True):
             self.paths.append(p)
             self.labels.append(1)
-        for p in glob.glob(negative_glob):
+        for p in glob.glob(negative_glob, recursive=True):
             self.paths.append(p)
             self.labels.append(0)
-
+ 
     def __len__(self):
         return len(self.paths)
-
+ 
     def __getitem__(self, idx):
         spec = extract_mel_spectrogram(self.paths[idx])
-        spec = self._pad_or_truncate(spec)
+        spec = pad_or_truncate_spectrogram(spec, FIXED_FRAMES)
         return torch.tensor(spec, dtype=torch.float32).unsqueeze(0), torch.tensor(
             self.labels[idx], dtype=torch.float32
         )
-
-    def _pad_or_truncate(self, spec: np.ndarray) -> np.ndarray:
-        if spec.shape[1] < FIXED_FRAMES:
-            pad_width = FIXED_FRAMES - spec.shape[1]
-            spec = np.pad(spec, ((0, 0), (0, pad_width)), mode="constant")
-        else:
-            spec = spec[:, :FIXED_FRAMES]
-        return spec
-
-
-class DistressCNN(nn.Module):
-    """Small CNN over log-mel spectrograms. Deliberately simple to start —
-    this is a baseline your team should iterate on, not a final architecture."""
-
-    def __init__(self):
-        super().__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(1, 16, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(16, 32, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-        )
-        self.classifier = nn.Sequential(
-            nn.AdaptiveAvgPool2d((4, 4)),
-            nn.Flatten(),
-            nn.Linear(32 * 4 * 4, 64),
-            nn.ReLU(),
-            nn.Linear(64, 1),
-        )
-
-    def forward(self, x):
-        x = self.conv(x)
-        return self.classifier(x).squeeze(1)  # raw logit; apply sigmoid outside
-
-
-def train():
+ 
+ 
+def train(pos_weight_cap: float = 1.8, seed: int = 42):
+    torch.manual_seed(seed)
+ 
     dataset = ScreamDataset(
-        positive_glob=os.path.join(DATA_DIR, "**", "*scream*", "*.wav"),
-        negative_glob=os.path.join(DATA_DIR, "**", "*not_scream*", "*.wav"),
+        positive_glob=os.path.join(DATA_DIR, "**", "Screaming", "**", "*.wav"),
+        negative_glob=os.path.join(DATA_DIR, "**", "NotScreaming", "**", "*.wav"),
     )
     if len(dataset) == 0:
         raise RuntimeError(
             "No audio files found. Run download_datasets.py first and check "
             "that the glob patterns above match the dataset's actual folder names."
         )
-
+ 
     val_size = max(1, int(0.2 * len(dataset)))
     train_size = len(dataset) - val_size
-    train_ds, val_ds = random_split(dataset, [train_size, val_size])
-
+    # A fixed generator seed means every run splits the data identically,
+    # so changing pos_weight is the ONLY thing that differs between runs —
+    # otherwise you're comparing noise, not your actual change.
+    split_generator = torch.Generator().manual_seed(seed)
+    train_ds, val_ds = random_split(dataset, [train_size, val_size], generator=split_generator)
+ 
     train_loader = DataLoader(train_ds, batch_size=16, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=16)
-
+ 
     model = DistressCNN()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    criterion = nn.BCEWithLogitsLoss()
-
+ 
+    # The dataset has far more non-scream clips than scream clips, which is
+    # exactly why the first training run had weak recall on the scream class
+    # (the model could get 88% overall accuracy just by leaning toward "safe").
+    # pos_weight tells the loss function to penalize a missed scream more
+    # heavily than a missed non-scream, proportional to the imbalance.
+    num_positive = sum(train_ds.dataset.labels[i] for i in train_ds.indices)
+    num_negative = len(train_ds) - num_positive
+    raw_ratio = num_negative / max(1, num_positive)
+    # The full ratio (2.98 here) pushed recall up a lot but hurt precision/accuracy
+    # more than needed. Capping it gives a milder nudge — tune this number and
+    # re-run to compare; there's no single "correct" value, it's a judgment call
+    # your team makes based on which mistake (missed scream vs. false alarm)
+    # matters more for the demo.
+    POS_WEIGHT_CAP = pos_weight_cap
+    pos_weight = torch.tensor([min(raw_ratio, POS_WEIGHT_CAP)])
+    print(f"Class balance in training set — scream: {num_positive}, not_scream: {num_negative}, "
+          f"raw ratio: {raw_ratio:.2f}, capped pos_weight used: {pos_weight.item():.2f}")
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+ 
     epochs = 15
     for epoch in range(epochs):
         model.train()
@@ -123,7 +113,7 @@ def train():
             optimizer.step()
             total_loss += loss.item()
         print(f"Epoch {epoch + 1}/{epochs} — train loss: {total_loss / len(train_loader):.4f}")
-
+ 
     # Validation report
     model.eval()
     all_preds, all_labels = [], []
@@ -133,15 +123,17 @@ def train():
             preds = (torch.sigmoid(logits) > 0.5).float()
             all_preds.extend(preds.tolist())
             all_labels.extend(labels.tolist())
-
+ 
     print("\nValidation report:")
     print(classification_report(all_labels, all_preds, target_names=["not_scream", "scream"]))
-
+ 
     os.makedirs(os.path.dirname(MODEL_OUT), exist_ok=True)
-    torch.save(model, MODEL_OUT)
+    torch.save(model.state_dict(), MODEL_OUT)
     print(f"\nModel saved to {MODEL_OUT}")
-    print("Set PLACEHOLDER = False in app/main.py to use it for inference.")
-
-
+    print("PLACEHOLDER is already set to False in app/main.py — just restart the ml-service.")
+ 
+ 
 if __name__ == "__main__":
-    train()
+    import sys as _sys
+    cap = float(_sys.argv[1]) if len(_sys.argv) > 1 else 1.8
+    train(pos_weight_cap=cap)
