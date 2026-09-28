@@ -1,3 +1,4 @@
+
 """
 FastAPI ML service — internal only, called by the Spring Boot backend.
  
@@ -64,7 +65,10 @@ class DistressResponse(BaseModel):
  
  
 class ToneRequest(BaseModel):
-    audio_features: List[float]
+    audio_features: List[float] = Field(default_factory=list, description="Flat placeholder features (legacy)")
+    mel_spectrogram: List[List[float]] | None = Field(
+        None, description="128 x 173 log-mel spectrogram, required for the real trained model"
+    )
  
  
 class ToneResponse(BaseModel):
@@ -108,18 +112,26 @@ def predict_distress(req: DistressRequest):
  
 @app.post("/predict/tone", response_model=ToneResponse)
 def predict_tone(req: ToneRequest):
+    # Real model path: same input contract as /predict/distress — a (128, 173)
+    # log-mel spectrogram, built with the SAME preprocessing used in
+    # scripts/train_tone_model.py. The model outputs P(frightened).
+    if not PLACEHOLDER and _tone_model is not None and req.mel_spectrogram is not None:
+        import torch
+        spec = np.array(req.mel_spectrogram, dtype=np.float32)
+        if spec.shape == (128, 173):
+            with torch.no_grad():
+                tensor = torch.tensor(spec).unsqueeze(0).unsqueeze(0)  # (1, 1, 128, 173)
+                p_frightened = float(torch.sigmoid(_tone_model(tensor)).item())
+            if p_frightened > 0.5:
+                return ToneResponse(tone="frightened", confidence=p_frightened)
+            return ToneResponse(tone="calm", confidence=1.0 - p_frightened)
+        print(f"WARNING: expected mel_spectrogram shape (128, 173), got {spec.shape}. "
+              f"Falling back to placeholder heuristic.")
+ 
     if not req.audio_features:
         return ToneResponse(tone="calm", confidence=0.0)
  
-    if PLACEHOLDER or _tone_model is None:
-        score = float(np.clip(np.mean(np.abs(req.audio_features)), 0.0, 1.0))
-        tone = "frightened" if score > 0.6 else "calm"
-        return ToneResponse(tone=tone, confidence=score)
- 
-    import torch
-    with torch.no_grad():
-        tensor = torch.tensor(req.audio_features, dtype=torch.float32).unsqueeze(0)
-        output = _tone_model(tensor)
-        confidence = float(torch.sigmoid(output).item())
-        tone = "frightened" if confidence > 0.6 else "calm"
-        return ToneResponse(tone=tone, confidence=confidence)
+    # Placeholder heuristic — used until real spectrograms are sent end-to-end.
+    score = float(np.clip(np.mean(np.abs(req.audio_features)), 0.0, 1.0))
+    tone = "frightened" if score > 0.6 else "calm"
+    return ToneResponse(tone=tone, confidence=score)
