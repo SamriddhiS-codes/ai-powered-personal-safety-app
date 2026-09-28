@@ -3,8 +3,15 @@ Shared audio feature extraction, used identically at training time and at
 inference time so the model always sees features in the same shape/scale.
 """
  
+import io
+ 
 import numpy as np
 import librosa
+ 
+SAMPLE_RATE = 22050
+CLIP_SECONDS = 4.0
+FIXED_FRAMES = 173
+MIN_SECONDS = 0.5
  
  
 def extract_mfcc_features(audio_path: str, n_mfcc: int = 40, duration: float = 4.0) -> np.ndarray:
@@ -19,12 +26,31 @@ def extract_mfcc_features(audio_path: str, n_mfcc: int = 40, duration: float = 4
     return np.concatenate([mean, std])  # shape: (2 * n_mfcc,)
  
  
+def mel_from_waveform(y: np.ndarray, n_mels: int = 128) -> np.ndarray:
+    """Waveform (22050 Hz mono) -> log-mel spectrogram. The single place this maths lives."""
+    mel = librosa.feature.melspectrogram(y=y, sr=SAMPLE_RATE, n_mels=n_mels)
+    return librosa.power_to_db(mel, ref=np.max)
+ 
+ 
 def extract_mel_spectrogram(audio_path: str, duration: float = 4.0, n_mels: int = 128) -> np.ndarray:
-    """Returns a log-mel spectrogram — used for the CNN-based distress detector."""
-    y, sr = librosa.load(audio_path, duration=duration, sr=22050)
-    mel = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=n_mels)
-    log_mel = librosa.power_to_db(mel, ref=np.max)
-    return log_mel  # shape: (n_mels, time_frames)
+    """Returns a log-mel spectrogram from a file path (used at training time)."""
+    y, _ = librosa.load(audio_path, duration=duration, sr=SAMPLE_RATE)
+    return mel_from_waveform(y, n_mels)  # shape: (n_mels, time_frames)
+ 
+ 
+def spectrogram_from_bytes(data: bytes) -> np.ndarray:
+    """
+    Uploaded audio bytes (WAV/FLAC/OGG) -> (128, 173) spectrogram, ready for the CNN.
+    Same steps as training: resample to 22050 Hz mono, first 4 s, log-mel, pad/truncate.
+    Raises ValueError if the audio can't be decoded or is too short to be meaningful.
+    """
+    try:
+        y, _ = librosa.load(io.BytesIO(data), sr=SAMPLE_RATE, duration=CLIP_SECONDS)
+    except Exception as exc:
+        raise ValueError(f"Could not decode audio (send 16-bit PCM WAV): {exc}") from exc
+    if y.size < int(MIN_SECONDS * SAMPLE_RATE):
+        raise ValueError(f"Audio too short (need at least {MIN_SECONDS}s)")
+    return pad_or_truncate_spectrogram(mel_from_waveform(y), FIXED_FRAMES)
  
  
 def pad_or_truncate_spectrogram(spec: np.ndarray, fixed_frames: int = 173) -> np.ndarray:

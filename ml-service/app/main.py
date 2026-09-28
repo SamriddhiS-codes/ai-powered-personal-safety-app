@@ -12,15 +12,18 @@ before the trained models are ready. Swap `PLACEHOLDER = True` to False once
 model artifacts exist at the paths below (see scripts/train_distress_model.py).
 """
  
-from fastapi import FastAPI
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from typing import List
 import numpy as np
 from app.model_arch import DistressCNN
+from app.features import spectrogram_from_bytes
  
 app = FastAPI(title="Safety App ML Service", version="0.1.0")
  
 PLACEHOLDER = False
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+DISTRESS_THRESHOLD = 0.6
 DISTRESS_MODEL_PATH = "models/distress_model.pt"
 TONE_MODEL_PATH = "models/tone_model.pt"
  
@@ -37,12 +40,12 @@ def _load_models_if_available():
     import os
     if os.path.exists(DISTRESS_MODEL_PATH):
         _distress_model = DistressCNN()
-        _distress_model.load_state_dict(torch.load(DISTRESS_MODEL_PATH, map_location="cpu"))
+        _distress_model.load_state_dict(torch.load(DISTRESS_MODEL_PATH, map_location="cpu", weights_only=True))
         _distress_model.eval()
         print(f"Loaded trained distress model from {DISTRESS_MODEL_PATH}")
     if os.path.exists(TONE_MODEL_PATH):
         _tone_model = DistressCNN()
-        _tone_model.load_state_dict(torch.load(TONE_MODEL_PATH, map_location="cpu"))
+        _tone_model.load_state_dict(torch.load(TONE_MODEL_PATH, map_location="cpu", weights_only=True))
         _tone_model.eval()
         print(f"Loaded trained tone model from {TONE_MODEL_PATH}")
  
@@ -76,6 +79,48 @@ class ToneResponse(BaseModel):
     confidence: float
  
  
+ 
+def _score(model, spec: np.ndarray) -> float:
+    """Runs the CNN on one (128, 173) spectrogram and returns P(positive class)."""
+    import torch
+    with torch.no_grad():
+        tensor = torch.tensor(spec, dtype=torch.float32).unsqueeze(0).unsqueeze(0)  # (1, 1, 128, 173)
+        return float(torch.sigmoid(model(tensor)).item())
+ 
+ 
+async def _spec_from_upload(file: UploadFile) -> np.ndarray:
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Audio file too large (max 5 MB)")
+    try:
+        return spectrogram_from_bytes(data)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+ 
+ 
+def _require(model, name: str):
+    if model is None:
+        raise HTTPException(status_code=503, detail=f"{name} model is not loaded")
+ 
+ 
+@app.post("/predict/distress/audio", response_model=DistressResponse)
+async def predict_distress_audio(file: UploadFile = File(...)):
+    """Real pipeline: raw audio in -> spectrogram -> distress prediction."""
+    _require(_distress_model, "distress")
+    confidence = _score(_distress_model, await _spec_from_upload(file))
+    return DistressResponse(is_distress=confidence > DISTRESS_THRESHOLD, confidence=confidence)
+ 
+ 
+@app.post("/predict/tone/audio", response_model=ToneResponse)
+async def predict_tone_audio(file: UploadFile = File(...)):
+    """Real pipeline: spoken check-in reply in -> spectrogram -> calm/frightened."""
+    _require(_tone_model, "tone")
+    p_frightened = _score(_tone_model, await _spec_from_upload(file))
+    if p_frightened > 0.5:
+        return ToneResponse(tone="frightened", confidence=p_frightened)
+    return ToneResponse(tone="calm", confidence=1.0 - p_frightened)
+ 
+ 
 @app.get("/health")
 def health():
     return {"status": "ok", "placeholder_mode": PLACEHOLDER}
@@ -95,11 +140,12 @@ def predict_distress(req: DistressRequest):
                 logit = _distress_model(tensor)
                 confidence = float(torch.sigmoid(logit).item())
                 return DistressResponse(is_distress=confidence > 0.6, confidence=confidence)
-        # Wrong shape sent — fall through to the placeholder rather than crash,
-        # since this usually means the caller hasn't wired real feature
-        # extraction yet (see docs/API_CONTRACT.md).
-        print(f"WARNING: expected mel_spectrogram shape (128, 173), got {spec.shape}. "
-              f"Falling back to placeholder heuristic.")
+        # Wrong shape: fail loudly. Silently falling back to the placeholder on
+        # the SOS path would hide a wiring bug behind plausible-looking output.
+        raise HTTPException(
+            status_code=422,
+            detail=f"mel_spectrogram must have shape (128, 173), got {spec.shape}",
+        )
  
     if not req.audio_features:
         return DistressResponse(is_distress=False, confidence=0.0)
@@ -125,8 +171,10 @@ def predict_tone(req: ToneRequest):
             if p_frightened > 0.5:
                 return ToneResponse(tone="frightened", confidence=p_frightened)
             return ToneResponse(tone="calm", confidence=1.0 - p_frightened)
-        print(f"WARNING: expected mel_spectrogram shape (128, 173), got {spec.shape}. "
-              f"Falling back to placeholder heuristic.")
+        raise HTTPException(
+            status_code=422,
+            detail=f"mel_spectrogram must have shape (128, 173), got {spec.shape}",
+        )
  
     if not req.audio_features:
         return ToneResponse(tone="calm", confidence=0.0)
