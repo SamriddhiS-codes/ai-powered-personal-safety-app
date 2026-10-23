@@ -17,10 +17,10 @@ the backend calls the ML service internally.
 ### Safety Sessions
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/sessions/start` | Activates Safety Mode. Returns `sessionId`. |
-| POST | `/sessions/{id}/ping` | Push a GPS coordinate `{ lat, lng }` while session is active |
-| POST | `/sessions/{id}/audio-chunk` | Upload a short ambient audio clip for distress scoring (proxies to ML service `/predict/distress`) |
-| POST | `/sessions/{id}/checkin-response` | Upload the user's spoken check-in response (proxies to ML service `/predict/tone`) |
+| POST | `/sessions/start` | Body `{ "userId": uuid }`. Activates Safety Mode. Returns `sessionId` and `status`. |
+| POST | `/sessions/{id}/ping` | Push a GPS coordinate `{ "latitude": .., "longitude": .. }` while the session is open. Returns 204. |
+| POST | `/sessions/{id}/audio-chunk` | Multipart upload, part name `file` (16-bit PCM WAV). Scores it via the ML service. If distress is flagged, the session moves to `CHECKIN_PENDING` and the response gives `checkinDeadlineEpochMs`. |
+| POST | `/sessions/{id}/checkin-response` | Multipart, part `file` (WAV) is optional: send no file when the countdown runs out. Calm reply in time dismisses; frightened, unclear, late or missing reply raises a signed SOS alert. |
 | POST | `/sessions/{id}/end` | Ends the session (user is confirmed safe) |
 | GET  | `/sessions/{id}` | Session status + latest location |
 
@@ -62,13 +62,13 @@ matching `AlertSigningService` in the backend (see `/backend/.../security`).
 
 | Method | Endpoint | Request | Response |
 |---|---|---|---|
-| POST | `/predict/distress` | `{ "audio_features": [float, ...] }` (MFCC/spectrogram features) | `{ "is_distress": bool, "confidence": float }` |
-| POST | `/predict/tone` | `{ "audio_features": [float, ...] }` | `{ "tone": "calm" \| "frightened", "confidence": float }` |
+| POST | `/predict/distress/audio` | multipart `file` (WAV) | `{ "is_distress": bool, "confidence": float }` |
+| POST | `/predict/tone/audio` | multipart `file` (WAV) | `{ "tone": "calm" \| "frightened", "confidence": float }` |
+| POST | `/predict/distress`, `/predict/tone` | pre-made `mel_spectrogram` (128 x 173); wrong shape returns 422 | same as above |
 | GET  | `/health` | — | `{ "status": "ok" }` |
 
-Feature extraction (MFCC / mel-spectrogram via `librosa`) happens **before** the request is
-sent — the backend or a small preprocessing step turns raw audio into a feature vector so the
-ML service stays a thin, swappable inference layer.
+The ML service turns audio into a spectrogram itself (`app/features.py`, the same code used for training),
+so the backend just forwards the uploaded WAV.
 
 ---
 
