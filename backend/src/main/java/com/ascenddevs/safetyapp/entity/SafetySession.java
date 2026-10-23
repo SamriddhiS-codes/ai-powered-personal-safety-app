@@ -43,6 +43,6 @@ public class SafetySession {
     public void setEndedAt(Instant endedAt) { this.endedAt = endedAt; }
 
     public enum Status {
-        ACTIVE, DISMISSED, ESCALATED, ENDED
+        ACTIVE, CHECKIN_PENDING, DISMISSED, ESCALATED, ENDED
     }
 }

@@ -34,7 +34,7 @@ CREATE TABLE trusted_contacts (
 CREATE TABLE safety_sessions (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    status      VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, DISMISSED, ESCALATED, ENDED
+    status      VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, CHECKIN_PENDING, DISMISSED, ESCALATED, ENDED
     started_at  TIMESTAMP NOT NULL DEFAULT now(),
     ended_at    TIMESTAMP
 );
@@ -65,7 +65,7 @@ CREATE TABLE alerts (
     nonce                 VARCHAR(64) NOT NULL UNIQUE,
     signature             VARCHAR(255) NOT NULL,
     signed_timestamp      BIGINT NOT NULL,    -- epoch millis, part of the signed payload
-    verification_status   VARCHAR(20) NOT NULL DEFAULT 'PENDING', -- VERIFIED, REJECTED_REPLAY, REJECTED_INVALID, REJECTED_STALE
+    verification_status   VARCHAR(40) NOT NULL DEFAULT 'PENDING', -- PENDING, VERIFIED, REJECTED_REPLAY, REJECTED_INVALID_SIGNATURE, REJECTED_STALE
     created_at            TIMESTAMP NOT NULL DEFAULT now()
 );
 
