@@ -31,17 +31,21 @@ export class Recorder {
   }
 
   // Everything recorded since the last take() as a WAV, or null if under 0.5 s.
-  take() {
+  // With lastSeconds, only the most recent lastSeconds of that audio is returned
+  // (the rest is discarded), so e.g. a scream just before a spoken reply is left out.
+  take(lastSeconds) {
     const rate = this.ctx ? this.ctx.sampleRate : 44100;
-    const n = this.buf.reduce((a, b) => a + b.length, 0);
-    if (n < rate * 0.5) return null;
-    const f = new Float32Array(n);
+    const total = this.buf.reduce((a, b) => a + b.length, 0);
+    if (total < rate * 0.5) return null;
+    const all = new Float32Array(total);
     let o = 0;
     this.buf.forEach((b) => {
-      f.set(b, o);
+      all.set(b, o);
       o += b.length;
     });
     this.buf = [];
+    const f = lastSeconds ? all.subarray(Math.max(0, total - Math.floor(rate * lastSeconds))) : all;
+    const n = f.length;
     const v = new DataView(new ArrayBuffer(44 + n * 2));
     const w = (p, s) => [...s].forEach((c, i) => v.setUint8(p + i, c.charCodeAt(0)));
     w(0, "RIFF");

@@ -6,13 +6,20 @@ async function call(path, opts) {
   return r.status === 204 ? null : r.json();
 }
 
+function requireUser() {
+  if (!USER_ID) {
+    throw new Error("VITE_USER_ID is not set. Copy .env.example to .env.local, add your user id, and restart npm run dev.");
+  }
+  return USER_ID;
+}
+
 const json = (body) => ({
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(body),
 });
 
-export const startSession = () => call("/sessions/start", json({ userId: USER_ID }));
+export const startSession = async () => call("/sessions/start", json({ userId: requireUser() }));
 export const ping = (sid, lat, lon) =>
   call(`/sessions/${sid}/ping`, json({ latitude: lat, longitude: lon }));
 export const endSession = (sid) => call(`/sessions/${sid}/end`, { method: "POST" });
@@ -32,15 +39,16 @@ export function checkin(sid, wav) {
   return call(`/sessions/${sid}/checkin-response`, { method: "POST", body: fd });
 }
 
-export const manualAlert = (sid, pos) =>
+// A pressed button involves no AI, so no confidence scores are sent (they show as n/a).
+export const manualAlert = async (sid, pos) =>
   call(
     "/alerts",
     json({
       sessionId: sid,
-      userId: USER_ID,
+      userId: requireUser(),
       latitude: pos ? pos.lat : null,
       longitude: pos ? pos.lon : null,
-      distressConfidence: 1,
-      toneConfidence: 1,
+      distressConfidence: null,
+      toneConfidence: null,
     })
   );

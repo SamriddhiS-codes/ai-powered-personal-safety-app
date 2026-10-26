@@ -1,3 +1,5 @@
-export const API = "http://localhost:8080/api";
-// TEMPORARY: your test user. Replace once login exists.
-export const USER_ID = "4893f3dd-db8a-44ea-b7d5-a2a85ed9edb6";
+// Per-developer settings come from frontend/app/.env.local (never committed).
+// Copy .env.example to .env.local, fill it in, then restart `npm run dev`.
+export const API = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+// TEMPORARY: the test user, until login exists.
+export const USER_ID = import.meta.env.VITE_USER_ID;
