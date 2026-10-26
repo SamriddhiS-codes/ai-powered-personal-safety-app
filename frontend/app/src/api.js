@@ -24,6 +24,10 @@ export const ping = (sid, lat, lon) =>
   call(`/sessions/${sid}/ping`, json({ latitude: lat, longitude: lon }));
 export const endSession = (sid) => call(`/sessions/${sid}/end`, { method: "POST" });
 export const getAlert = (id) => call(`/alerts/${id}`);
+export const listAlerts = () => call("/alerts");
+// tamper: none | payload | signature | timestamp | stale (simulates an edited alert for demos)
+export const verifyAlert = (id, tamper = "none") =>
+  call(`/alerts/${id}/verify?tamper=${tamper}`, { method: "POST" });
 
 export function audioChunk(sid, wav) {
   const fd = new FormData();

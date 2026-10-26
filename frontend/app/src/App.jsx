@@ -1,6 +1,7 @@
 import { useState } from "react";
 import MapScreen from "./MapScreen";
 import SafetyScreen from "./SafetyScreen";
+import DashboardScreen from "./DashboardScreen";
 import "./App.css";
 
 export default function App() {
@@ -16,12 +17,16 @@ export default function App() {
           <button className={tab === "map" ? "on" : ""} onClick={() => setTab("map")}>
             Nearby help
           </button>
+          <button className={tab === "alerts" ? "on" : ""} onClick={() => setTab("alerts")}>
+            Alerts
+          </button>
         </nav>
       </header>
       <div hidden={tab !== "safety"}>
         <SafetyScreen />
       </div>
       {tab === "map" && <MapScreen />}
+      {tab === "alerts" && <DashboardScreen />}
     </div>
   );
 }
