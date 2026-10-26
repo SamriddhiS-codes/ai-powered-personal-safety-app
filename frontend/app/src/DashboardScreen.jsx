@@ -88,6 +88,8 @@ export default function DashboardScreen() {
   const selected = alerts.find((a) => a.id === selectedId) || null;
   const focus = selected || alerts.find(hasPlace) || null;
   const target = focus && hasPlace(focus) ? [focus.latitude, focus.longitude] : null;
+  const verifiedCount = alerts.filter((a) => a.verificationStatus === "VERIFIED").length;
+  const manualCount = alerts.filter(isManual).length;
   const tooOld = selected ? now - selected.signedTimestamp > WINDOW_MS : false;
 
   async function run(test) {
@@ -132,6 +134,25 @@ export default function DashboardScreen() {
         <p className="muted">
           Updates every 5 seconds. Tap an alert to see it on the map and test its verification.
         </p>
+
+        <div className="stats">
+          <div>
+            <b>{alerts.length}</b>
+            <span>Total alerts</span>
+          </div>
+          <div>
+            <b>{verifiedCount}</b>
+            <span>Verified</span>
+          </div>
+          <div>
+            <b>{alerts.length - manualCount}</b>
+            <span>AI-detected</span>
+          </div>
+          <div>
+            <b>{manualCount}</b>
+            <span>Manual</span>
+          </div>
+        </div>
 
         {error && <p className="note">Could not load alerts: {error}</p>}
         {loaded && !error && alerts.length === 0 && (

@@ -96,3 +96,27 @@
   font-weight: 700;
   font-size: 0.8rem;
 }
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+.stats div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.6rem 0.2rem;
+}
+.stats b {
+  font-size: 1.3rem;
+}
+.stats span {
+  font-size: 0.68rem;
+  color: var(--muted);
+}

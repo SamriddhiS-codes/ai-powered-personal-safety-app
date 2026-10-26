@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Recorder } from "./audio";
 import * as api from "./api";
+import "./Safety.css";
 
 const pct = (x) => (x == null ? "n/a" : Math.round(x * 100) + "%");
 
@@ -11,6 +12,70 @@ const OK_PHRASE =
 // Calls for help during the check-in raise the SOS immediately.
 const HELP_PHRASE = /\b(help|save me|leave me alone|let me go)\b/;
 const NOT_HELP = /\b(don'?t|do not|no|not|without)\s+(need\s+)?(any\s+)?help\b/;
+
+const STEPS = [
+  ["🎙️", "Listening"],
+  ["🧠", "Distress"],
+  ["⏱️", "Check-in"],
+  ["🎭", "Tone"],
+  ["🔏", "Signed SOS"],
+];
+
+// Lights up as the SOS pipeline moves from sound to a signed alert.
+function Pipeline({ mode }) {
+  const active = { idle: -1, listening: 0, checkin: 2, sending: 3, alert: 4 }[mode];
+  return (
+    <ol className="pipe" aria-label="SOS pipeline">
+      {STEPS.map(([icon, name], i) => (
+        <li key={name} className={i < active ? "done" : i === active ? "now" : ""}>
+          <span className="dot">{i < active ? "✓" : icon}</span>
+          <em>{name}</em>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+// The AI's scream score for each recent 4-second check, with the 60% check-in line.
+function ScoreGraph({ data }) {
+  const W = 300, H = 90, pad = 6;
+  const x = (i) => pad + (data.length < 2 ? (W - 2 * pad) / 2 : (i * (W - 2 * pad)) / (data.length - 1));
+  const y = (v) => H - pad - v * (H - 2 * pad);
+  const pts = data.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+  return (
+    <div className="graph">
+      <div className="graph-head">
+        <span>Scream score per check</span>
+        <b>{data.length ? pct(data[data.length - 1]) : "–"}</b>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Scream score history">
+        <line x1="0" x2={W} y1={y(0.6)} y2={y(0.6)} className="thr" />
+        <text x={W - 4} y={y(0.6) - 4} textAnchor="end" className="thr-t">
+          60% check-in line
+        </text>
+        {data.length > 1 && <polyline points={pts} className="ln" />}
+        {data.map((v, i) => (
+          <circle key={i} cx={x(i)} cy={y(v)} r="4" className={v >= 0.6 ? "pt hot" : "pt"} />
+        ))}
+      </svg>
+      {!data.length && <p className="muted">Scores appear after the first 4-second check.</p>}
+    </div>
+  );
+}
+
+// Circular countdown with the seconds in the middle.
+function Ring({ left, ring, busy }) {
+  const R = 62, C = 2 * Math.PI * R;
+  return (
+    <div className="ring">
+      <svg viewBox="0 0 150 150">
+        <circle cx="75" cy="75" r={R} className="ring-bg" />
+        <circle cx="75" cy="75" r={R} className="ring-fg" strokeDasharray={C} strokeDashoffset={C * (1 - ring / 100)} />
+      </svg>
+      <div className="count">{busy ? "…" : left}</div>
+    </div>
+  );
+}
 
 function Meter({ level }) {
   const db = level.rms > 0 ? Math.max(-60, 20 * Math.log10(level.rms)) : -60;
@@ -51,6 +116,9 @@ export default function SafetyScreen() {
   const [last, setLast] = useState(null);
   const [micName, setMicName] = useState("");
   const [heardText, setHeardText] = useState("");
+  const [history, setHistory] = useState([]); // scream scores of recent 4-second checks
+  const [verify, setVerify] = useState(null);
+  const [verifying, setVerifying] = useState(false);
 
   const modeRef = useRef("idle");
   const sid = useRef(null);
@@ -62,6 +130,7 @@ export default function SafetyScreen() {
   const deadline = useRef(0);
   const total = useRef(30000);
   const lastSound = useRef(Date.now());
+  const scoreRef = useRef(null); // scream score that triggered the check-in (kept for any SOS raised from it)
   const recog = useRef(null);
 
   const go = (m) => {
@@ -160,6 +229,9 @@ export default function SafetyScreen() {
     setWhy("");
     setAlert(null);
     setLast(null);
+    setHistory([]);
+    setVerify(null);
+    scoreRef.current = null;
     try {
       rec.current = new Recorder((l) => {
         setLevel(l);
@@ -186,7 +258,7 @@ export default function SafetyScreen() {
     busy.current = true;
     try {
       const r = await api.audioChunk(sid.current, wav);
-      setLast(r.distressConfidence);
+      record(r.distressConfidence);
       if (r.checkinRequired) beginCheckin(r.checkinDeadlineEpochMs);
     } catch (e) {
       setMsg("Audio check failed: " + e.message);
@@ -195,12 +267,18 @@ export default function SafetyScreen() {
     }
   }
 
+  function record(score) {
+    setLast(score);
+    scoreRef.current = score;
+    if (score != null) setHistory((h) => [...h.slice(-11), score]);
+  }
+
   async function demoScream() {
     if (modeRef.current !== "listening") return;
     busy.current = true;
     try {
       const r = await api.audioChunk(sid.current, await demoFile("scream.wav"));
-      setLast(r.distressConfidence);
+      record(r.distressConfidence);
       if (r.checkinRequired) beginCheckin(r.checkinDeadlineEpochMs);
       else setMsg("Demo scream scored " + pct(r.distressConfidence) + ", below the check-in threshold.");
     } catch (e) {
@@ -295,7 +373,7 @@ export default function SafetyScreen() {
     clearInterval(timers.current.cd);
     try {
       setWhy('You called for help ("' + heard + '"), so the SOS was sent immediately.');
-      const a = await api.manualAlert(sid.current, pos.current);
+      const a = await api.manualAlert(sid.current, pos.current, scoreRef.current);
       await showAlert(a.id);
     } catch (e) {
       setMsg("SOS failed: " + e.message);
@@ -308,7 +386,7 @@ export default function SafetyScreen() {
     clearInterval(timers.current.cd);
     try {
       setWhy("You pressed Send SOS now.");
-      const a = await api.manualAlert(sid.current, pos.current);
+      const a = await api.manualAlert(sid.current, pos.current, scoreRef.current);
       await showAlert(a.id);
     } catch (e) {
       setMsg("SOS failed: " + e.message);
@@ -325,6 +403,18 @@ export default function SafetyScreen() {
       setAlert(id ? await api.getAlert(id) : null);
     } catch (e) {
       setMsg("Could not load alert: " + e.message);
+    }
+  }
+
+  async function runVerify(tamper) {
+    if (!alert) return;
+    setVerifying(true);
+    try {
+      setVerify(await api.verifyAlert(alert.id, tamper));
+    } catch (e) {
+      setVerify({ result: "ERROR", accepted: false, explanation: e.message });
+    } finally {
+      setVerifying(false);
     }
   }
 
@@ -347,6 +437,7 @@ export default function SafetyScreen() {
 
   return (
     <div className="safety">
+      <Pipeline mode={mode} />
       {mode === "idle" && (
         <div className="center">
           <p className="muted">Tap once. It listens only while Safety Mode is on.</p>
@@ -368,6 +459,7 @@ export default function SafetyScreen() {
               device in the browser's site settings.
             </p>
           )}
+          <ScoreGraph data={history} />
           <p className="muted">
             {last == null
               ? "Waiting for the first 4-second check…"
@@ -392,10 +484,7 @@ export default function SafetyScreen() {
 
       {(mode === "checkin" || mode === "sending") && (
         <div className="center">
-          <div className="count">{mode === "sending" ? "…" : left}</div>
-          <div className="bar">
-            <i style={{ width: ring + "%" }} />
-          </div>
+          <Ring left={left} ring={ring} busy={mode === "sending"} />
           <h2>Are you okay?</h2>
           <p className="muted">
             Say "I'm fine", "I'm okay" or "it was nothing" to cancel. Say "help" to send an SOS at once. If nothing is
@@ -458,6 +547,27 @@ export default function SafetyScreen() {
             </div>
           ) : (
             <p className="muted">Loading alert details…</p>
+          )}
+          {alert && (
+            <div className="card sec">
+              <b className="sec-title">🔐 Security details</b>
+              <div className="kv"><span>Signature</span><b>HMAC-SHA256</b></div>
+              <div className="kv"><span>Signed at</span><b>{new Date(alert.signedTimestamp).toLocaleTimeString()}</b></div>
+              <div className="kv"><span>Alert ID</span><b className="mono">{String(alert.id).slice(0, 8)}…</b></div>
+              <div className="kv"><span>Source</span><b>{alert.distressConfidence == null ? "Manual button" : "AI-detected"}</b></div>
+              <div className="row">
+                <button className="btn calm" disabled={verifying} onClick={() => runVerify("none")}>Verify</button>
+                <button className="btn sos" disabled={verifying} onClick={() => runVerify("payload")}>Tamper</button>
+              </div>
+              {verify && (
+                <p className={"vres " + (verify.accepted ? "ok" : "bad")}>
+                  <b>{verify.result}</b>
+                  <br />
+                  {verify.explanation}
+                </p>
+              )}
+              <p className="muted">Press Verify twice: the second time the nonce is already used, so it is rejected as a replay.</p>
+            </div>
           )}
           <a className="sos112" href="tel:112">
             Call emergency number 112

@@ -1,0 +1,241 @@
+/* Visual theme layer: loaded after App.css, so it restyles the whole app without touching the screens' code. */
+:root {
+  --bg: #f1f3fb;
+  --ink: #14172b;
+  --muted: #646a89;
+  --surface: #ffffff;
+  --line: #e1e4f2;
+  --calm: #17a07a;
+  --danger: #e0453a;
+  --accent: #5b5bd6;
+  --accent2: #8b5cf6;
+  --shadow: 0 18px 50px rgba(30, 36, 90, 0.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1020;
+    --ink: #eef0ff;
+    --muted: #9aa1c4;
+    --surface: #151a33;
+    --line: #272d54;
+    --shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  }
+}
+
+body {
+  background:
+    radial-gradient(900px 500px at 10% -10%, rgba(91, 91, 214, 0.28), transparent 60%),
+    radial-gradient(800px 500px at 100% 10%, rgba(139, 92, 246, 0.2), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* The app sits in a rounded "phone" card on large screens */
+.shell {
+  margin: 1.5rem auto;
+  min-height: calc(100vh - 3rem);
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+}
+@media (max-width: 520px) {
+  .shell {
+    margin: 0;
+    min-height: 100vh;
+    border-radius: 0;
+    border: none;
+  }
+}
+
+header {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-bottom: none;
+  color: #fff;
+  padding: 1rem 1.1rem;
+}
+header h1 {
+  font-size: 1.1rem;
+  letter-spacing: 0.01em;
+}
+header h1::before {
+  content: "🛡️ ";
+}
+nav {
+  background: rgba(255, 255, 255, 0.18);
+}
+nav button {
+  color: rgba(255, 255, 255, 0.85);
+  padding: 0.4rem 0.65rem;
+  transition: background 0.15s;
+}
+nav button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+nav button.on {
+  background: #fff;
+  color: #2b2b7a;
+}
+
+/* Safety Mode */
+.center {
+  animation: rise 0.35s ease both;
+}
+.center h2,
+.alertbox h2 {
+  font-size: 1.55rem;
+  letter-spacing: -0.01em;
+}
+.big {
+  width: 190px;
+  height: 190px;
+  font-size: 1.25rem;
+  background: radial-gradient(circle at 30% 25%, #3fd6ac, var(--calm) 60%, #0f7a5c);
+  box-shadow: 0 14px 40px rgba(23, 160, 122, 0.45);
+  animation: pulse 2.4s ease-out infinite;
+  transition: transform 0.15s;
+}
+.big:hover {
+  transform: scale(1.04);
+}
+.big:active {
+  transform: scale(0.97);
+}
+.count {
+  font-size: 4.6rem;
+  line-height: 1;
+  background: linear-gradient(135deg, #ff7a59, var(--danger));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: beat 1s ease-in-out infinite;
+}
+.bar {
+  height: 8px;
+}
+.bar i {
+  background: linear-gradient(90deg, #ff7a59, var(--danger));
+}
+
+.btn {
+  border-radius: 14px;
+  padding: 0.85rem 0.7rem;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+  transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+}
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(30, 36, 90, 0.14);
+}
+.btn.sos {
+  background: rgba(224, 69, 58, 0.08);
+}
+.btn.sos:hover:not(:disabled) {
+  background: var(--danger);
+  color: #fff;
+}
+.btn.calm {
+  background: rgba(23, 160, 122, 0.08);
+}
+.btn.calm:hover:not(:disabled) {
+  background: var(--calm);
+  color: #fff;
+}
+.btn.solid {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+}
+
+.meter-track {
+  height: 16px;
+}
+
+.card {
+  background: var(--bg);
+  border-radius: 18px;
+}
+.demo {
+  background: var(--bg);
+  border-color: var(--accent);
+}
+.demo > span {
+  color: var(--accent);
+}
+.note {
+  border-radius: 14px;
+}
+
+/* SOS sent */
+.badge {
+  animation: blink 1.4s ease-in-out infinite;
+}
+.sos112 {
+  background: linear-gradient(135deg, #ff6a57, var(--danger));
+  box-shadow: 0 12px 28px rgba(224, 69, 58, 0.4);
+  border-radius: 16px;
+  padding: 1rem;
+  font-size: 1.05rem;
+}
+
+/* Nearby help and alerts */
+.stations li,
+.alert-item {
+  border-radius: 16px;
+  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+}
+.stations li:hover,
+.alert-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(30, 36, 90, 0.12);
+}
+.actions a {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.alert-item.on {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+.map {
+  border-bottom: 1px solid var(--line);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pulse {
+  0% {
+    box-shadow: 0 14px 40px rgba(23, 160, 122, 0.45), 0 0 0 0 rgba(23, 160, 122, 0.45);
+  }
+  70% {
+    box-shadow: 0 14px 40px rgba(23, 160, 122, 0.45), 0 0 0 28px rgba(23, 160, 122, 0);
+  }
+  100% {
+    box-shadow: 0 14px 40px rgba(23, 160, 122, 0.45), 0 0 0 0 rgba(23, 160, 122, 0);
+  }
+}
+@keyframes beat {
+  50% {
+    transform: scale(1.06);
+  }
+}
+@keyframes blink {
+  50% {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

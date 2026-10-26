@@ -1,0 +1,95 @@
+.about {
+  padding: 1.3rem 1.2rem 2.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  animation: rise 0.35s ease both;
+}
+.about h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+.about h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+.about-hero {
+  border-radius: 20px;
+  padding: 1.2rem;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+}
+.about-hero p {
+  margin: 0.4rem 0 0;
+  font-size: 0.92rem;
+  opacity: 0.95;
+}
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.step {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 0.8rem;
+  position: relative;
+  padding-bottom: 1rem;
+}
+.step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: 46px;
+  bottom: 0;
+  width: 2px;
+  background: var(--line);
+}
+.step-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  font-size: 1.3rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+.step strong {
+  display: block;
+  font-size: 0.95rem;
+}
+.step p {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.limits {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+.chip.sdg {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+  border: none;
+}

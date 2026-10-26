@@ -43,8 +43,9 @@ export function checkin(sid, wav) {
   return call(`/sessions/${sid}/checkin-response`, { method: "POST", body: fd });
 }
 
-// A pressed button involves no AI, so no confidence scores are sent (they show as n/a).
-export const manualAlert = async (sid, pos) =>
+// A pressed button involves no AI. But if a scream was already scored (the check-in was running),
+// that score is sent too, so the alert shows as AI-detected instead of Manual.
+export const manualAlert = async (sid, pos, distress = null) =>
   call(
     "/alerts",
     json({
@@ -52,7 +53,7 @@ export const manualAlert = async (sid, pos) =>
       userId: requireUser(),
       latitude: pos ? pos.lat : null,
       longitude: pos ? pos.lon : null,
-      distressConfidence: null,
+      distressConfidence: distress,
       toneConfidence: null,
     })
   );
