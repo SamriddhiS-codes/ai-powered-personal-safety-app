@@ -4,6 +4,14 @@ import * as api from "./api";
 
 const pct = (x) => (x == null ? "n/a" : Math.round(x * 100) + "%");
 
+// Phrases that mean "I'm okay": I'm fine / I am okay / it was nothing / false alarm ...
+const OK_PHRASE =
+  /\b(i'?m|i am|im)\s+(fine|okay|ok|alright|all right|safe|good)\b|\bit was (nothing|nothin)\b|\bfalse alarm\b/;
+
+// Calls for help during the check-in raise the SOS immediately.
+const HELP_PHRASE = /\b(help|save me|leave me alone|let me go)\b/;
+const NOT_HELP = /\b(don'?t|do not|no|not|without)\s+(need\s+)?(any\s+)?help\b/;
+
 function Meter({ level }) {
   const db = level.rms > 0 ? Math.max(-60, 20 * Math.log10(level.rms)) : -60;
   const fill = ((db + 60) / 60) * 100;
@@ -42,6 +50,7 @@ export default function SafetyScreen() {
   const [alert, setAlert] = useState(null);
   const [last, setLast] = useState(null);
   const [micName, setMicName] = useState("");
+  const [heardText, setHeardText] = useState("");
 
   const modeRef = useRef("idle");
   const sid = useRef(null);
@@ -53,16 +62,78 @@ export default function SafetyScreen() {
   const deadline = useRef(0);
   const total = useRef(30000);
   const lastSound = useRef(Date.now());
+  const recog = useRef(null);
 
   const go = (m) => {
     modeRef.current = m;
+    if (m !== "checkin") stopWordCheck();
     setMode(m);
   };
+
+  // Listens for "I'm fine" / "help" using the browser's speech recognition.
+  function startWordCheck() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      setMsg("Word detection needs Chrome or Edge. Use the buttons instead.");
+      return;
+    }
+    stopWordCheck();
+    const r = new SR();
+    r.lang = "en-IN";
+    r.continuous = true;
+    r.interimResults = true;
+    r.onresult = (e) => {
+      const text = Array.from(e.results)
+        .map((x) => x[0].transcript)
+        .join(" ")
+        .toLowerCase()
+        .replace(/[’`]/g, "'")
+        .replace(/[^a-z\s']/g, " ");
+      setHeardText(text.trim());
+      if (modeRef.current !== "checkin") return;
+      if (HELP_PHRASE.test(text) && !NOT_HELP.test(text)) {
+        helpSos(text.trim());
+      } else if (OK_PHRASE.test(text)) {
+        cancelCheck();
+      }
+    };
+    r.onend = () => {
+      // Chrome stops recognition after a while, so restart it while the check-in is open.
+      if (modeRef.current === "checkin" && recog.current === r) {
+        try {
+          r.start();
+        } catch (err) {
+          /* already running */
+        }
+      }
+    };
+    r.onerror = () => {};
+    recog.current = r;
+    try {
+      r.start();
+    } catch (err) {
+      /* already running */
+    }
+  }
+
+  function stopWordCheck() {
+    const r = recog.current;
+    recog.current = null;
+    if (r) {
+      r.onend = null;
+      try {
+        r.stop();
+      } catch (err) {
+        /* not running */
+      }
+    }
+  }
 
   function stopAll() {
     clearInterval(timers.current.chunk);
     clearInterval(timers.current.ping);
     clearInterval(timers.current.cd);
+    stopWordCheck();
     if (geo.current != null) navigator.geolocation.clearWatch(geo.current);
     geo.current = null;
     rec.current?.stop();
@@ -151,7 +222,9 @@ export default function SafetyScreen() {
     rec.current?.take(); // drop old audio so the reply starts clean
     deadline.current = dl;
     total.current = Math.max(1000, dl - Date.now());
+    setHeardText("");
     go("checkin");
+    startWordCheck();
     clearInterval(timers.current.cd);
     timers.current.cd = setInterval(() => {
       const ms = deadline.current - Date.now();
@@ -163,7 +236,7 @@ export default function SafetyScreen() {
     }, 250);
   }
 
-  // Sends the last 3 seconds, so a scream just before the reply doesn't count.
+  // Tone check on the last 3 seconds of audio (the "Send voice for tone check" button).
   function replyNow() {
     const wav = rec.current?.take(3);
     if (!wav) {
@@ -197,7 +270,7 @@ export default function SafetyScreen() {
     }
   }
 
-  // User-confirmed false alarm: ends the pending session and starts a fresh one. No alert is raised.
+  // Cancels the check-in (spoken "I'm fine" or the button): ends the pending session, starts a fresh one.
   async function cancelCheck() {
     if (modeRef.current !== "checkin") return;
     go("sending");
@@ -211,6 +284,21 @@ export default function SafetyScreen() {
       go("listening");
     } catch (e) {
       setMsg("Could not cancel: " + e.message);
+      go("listening");
+    }
+  }
+
+  // A spoken call for help during the countdown raises the SOS straight away.
+  async function helpSos(heard) {
+    if (modeRef.current !== "checkin") return;
+    go("sending");
+    clearInterval(timers.current.cd);
+    try {
+      setWhy('You called for help ("' + heard + '"), so the SOS was sent immediately.');
+      const a = await api.manualAlert(sid.current, pos.current);
+      await showAlert(a.id);
+    } catch (e) {
+      setMsg("SOS failed: " + e.message);
       go("listening");
     }
   }
@@ -310,16 +398,17 @@ export default function SafetyScreen() {
           </div>
           <h2>Are you okay?</h2>
           <p className="muted">
-            Stop making noise, then say a calm sentence for about 3 seconds ("I'm fine, it was nothing") and tap
-            send. Or cancel if it was a false alarm.
+            Say "I'm fine", "I'm okay" or "it was nothing" to cancel. Say "help" to send an SOS at once. If nothing is
+            heard before the timer ends, an SOS is raised.
           </p>
+          <p className="muted">{heardText ? `Heard: "${heardText}"` : "Listening for your words…"}</p>
           <Meter level={level} />
           <button className="btn calm" disabled={mode === "sending"} onClick={cancelCheck}>
             False alarm, cancel
           </button>
           <div className="row">
             <button className="btn calm" disabled={mode === "sending"} onClick={replyNow}>
-              I'm okay, send reply
+              Send voice for tone check
             </button>
             <button className="btn sos" disabled={mode === "sending"} onClick={manualSos}>
               Send SOS now
