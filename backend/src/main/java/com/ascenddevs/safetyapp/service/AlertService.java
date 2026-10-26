@@ -3,6 +3,7 @@ package com.ascenddevs.safetyapp.service;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
@@ -12,6 +13,7 @@ import com.ascenddevs.safetyapp.entity.User;
 import com.ascenddevs.safetyapp.repository.AlertRepository;
 import com.ascenddevs.safetyapp.repository.UserRepository;
 import com.ascenddevs.safetyapp.security.AlertSigningService;
+import com.ascenddevs.safetyapp.security.AlertTamper;
 import com.ascenddevs.safetyapp.security.SignedAlert;
 import com.fasterxml.jackson.databind.ObjectMapper;
  
@@ -67,6 +69,23 @@ public class AlertService {
         return signingService.verify(deviceSecret, signedAlert);
     }
  
+    /**
+     * Verifies a stored alert the way a receiver would: signature, freshness and nonce.
+     * The first successful call uses up the nonce, so asking again reports a replay.
+     * The stored alert's own status is deliberately left unchanged, so a replayed or
+     * forged submission can never mark the genuine alert as rejected.
+     * tamper simulates an attacker modifying the alert before it is submitted (demo/test hook).
+     */
+    public AlertSigningService.VerificationResult verifyStored(UUID alertId, AlertTamper.Mode tamper) {
+        Alert alert = alertRepository.findById(alertId)
+                .orElseThrow(() -> new NoSuchElementException("Alert not found: " + alertId));
+        User user = userRepository.findById(alert.getUserId())
+                .orElseThrow(() -> new NoSuchElementException("Unknown user: " + alert.getUserId()));
+        SignedAlert stored = new SignedAlert(
+                alert.getPayload(), alert.getSignedTimestamp(), alert.getNonce(), alert.getSignature());
+        return signingService.verify(user.getDeviceSecret(), AlertTamper.apply(stored, tamper));
+    }
+
     private String canonicalPayload(AlertRequest request) {
         Map<String, Object> ordered = new LinkedHashMap<>();
         ordered.put("sessionId", request.sessionId());
