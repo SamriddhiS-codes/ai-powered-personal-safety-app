@@ -22,6 +22,11 @@ const STEPS = [
     text: "A second model judges whether the reply sounds calm or frightened. A frightened, unclear, late or missing reply raises the SOS.",
   },
   {
+    icon: "🔐",
+    title: "Only you can sign in",
+    text: "Login needs your password (stored as a bcrypt hash) and a one-time code from your authenticator app (TOTP, RFC 6238). Each session is a signed HS256 token, and five wrong tries lock the account.",
+  },
+  {
     icon: "🔏",
     title: "The alert is signed",
     text: "Each alert carries an HMAC-SHA256 signature, a one-time nonce and a timestamp, so it cannot be forged, edited or replayed.",
@@ -34,6 +39,8 @@ const STEPS = [
 ];
 
 const LIMITS = [
+  "Login tokens are kept in the browser's local storage, which is simple but readable by scripts on the page. A production app would use secure, HTTP-only cookies. The nonce and lockout state live in memory or the database of a single server.",
+  "Trusted contacts are alerted through one-tap WhatsApp, SMS or email links that open on your own phone. There is no server-side SMS gateway, so the contact is not messaged until you tap send.",
   "A spoken \"I'm fine\" cancels the check-in directly, because the tone model proved unreliable on real microphones. Tone is checked only on the \"Send voice for tone check\" button and when the countdown ends. A coerced \"I'm fine\" is a known limitation.",
   "The tone model is about 75% accurate on speakers it never heard (acted English speech). It is a proof of concept, which is why you can always cancel during the countdown.",
   "Real distress in Bengali or Hindi, in a noisy street, will sound different from the training data.",

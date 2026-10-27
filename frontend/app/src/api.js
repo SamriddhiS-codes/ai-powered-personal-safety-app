@@ -1,16 +1,31 @@
 import { API, USER_ID } from "./config";
+import { getSession, logout } from "./auth";
 
-async function call(path, opts) {
-  const r = await fetch(API + path, opts);
-  if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 120)}`);
+async function call(path, opts = {}) {
+  const token = getSession()?.token;
+  const headers = { ...(opts.headers || {}), ...(token ? { Authorization: "Bearer " + token } : {}) };
+  const r = await fetch(API + path, { ...opts, headers });
+  if (!r.ok) {
+    const text = await r.text();
+    let message = text;
+    try {
+      message = JSON.parse(text).message || text; // the backend explains itself in a "message" field
+    } catch {
+      /* not JSON */
+    }
+    // A rejected token on a normal call means the login has expired: send the person back to sign in.
+    if (r.status === 401 && token) logout();
+    const err = new Error(String(message).slice(0, 160) || "Request failed (" + r.status + ")");
+    err.status = r.status;
+    throw err;
+  }
   return r.status === 204 ? null : r.json();
 }
 
 function requireUser() {
-  if (!USER_ID) {
-    throw new Error("VITE_USER_ID is not set. Copy .env.example to .env.local, add your user id, and restart npm run dev.");
-  }
-  return USER_ID;
+  const id = getSession()?.userId || USER_ID;
+  if (!id) throw new Error("You are not signed in.");
+  return id;
 }
 
 const json = (body) => ({
@@ -57,3 +72,15 @@ export const manualAlert = async (sid, pos, distress = null) =>
       toneConfidence: null,
     })
   );
+
+// Trusted contacts
+export const listContacts = () => call(`/contacts?userId=${requireUser()}`);
+export const addContact = (name, phone, email) =>
+  call("/contacts", json({ userId: requireUser(), name, phone: phone || null, email: email || null }));
+export const deleteContact = (id) => call(`/contacts/${id}?userId=${requireUser()}`, { method: "DELETE" });
+
+// Sign-up and login (public endpoints; see AuthService on the backend)
+export const register = (name, email, password) => call("/auth/register", json({ name, email, password }));
+export const confirmSetup = (token, code) => call("/auth/register/confirm", json({ token, code }));
+export const login = (email, password) => call("/auth/login", json({ email, password }));
+export const loginVerify = (token, code) => call("/auth/login/verify", json({ token, code }));

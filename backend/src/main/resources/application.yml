@@ -1,5 +1,7 @@
 server:
   port: 8080
+  error:
+    include-message: always   # so the app can show validation messages such as "Name is required."
 
 spring:
   application:
@@ -24,6 +26,9 @@ ml-service:
     base-url: http://127.0.0.1:8000
 
 app:
+  auth:
+    # Key that signs login tokens. Set JWT_SECRET (32+ characters) in real use; the default is for local development only.
+    jwt-secret: ${JWT_SECRET:dev-only-secret-change-me-before-any-real-use-0123456789}
   security:
     alert-timestamp-tolerance-minutes: 5
     rate-limit:

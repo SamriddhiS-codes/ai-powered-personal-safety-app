@@ -1,0 +1,36 @@
+.auth { padding: 1.6rem 1.3rem 2.2rem; display: flex; flex-direction: column; gap: 1rem; animation: rise 0.35s ease both; }
+.auth-hero { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
+.auth-hero h2 { margin: 0; font-size: 1.55rem; letter-spacing: -0.01em; }
+.auth-hero p { margin: 0; }
+.auth-logo { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; font-size: 1.9rem; background: linear-gradient(135deg, var(--accent), var(--accent2)); box-shadow: 0 12px 30px rgba(91, 91, 214, 0.4); }
+.seg { display: flex; background: var(--bg); border-radius: 999px; padding: 0.25rem; }
+.seg button { flex: 1; border: none; background: transparent; color: var(--muted); font-weight: 700; padding: 0.55rem; border-radius: 999px; cursor: pointer; }
+.seg button.on { background: var(--surface); color: var(--ink); box-shadow: 0 2px 8px rgba(30, 36, 90, 0.15); }
+.aform, .astep { display: flex; flex-direction: column; gap: 0.7rem; }
+.astep { align-items: stretch; text-align: center; }
+.aform input, .pw input { width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 0.8rem 0.9rem; }
+.aform input:focus, .pw input:focus, .code:focus { outline: 2px solid var(--accent); border-color: transparent; }
+.pw { position: relative; }
+.pw input { padding-right: 4.2rem; }
+.pw button { position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); border: none; background: transparent; color: var(--accent); font-weight: 700; cursor: pointer; font-size: 0.8rem; }
+.meter2 { display: flex; align-items: center; gap: 0.7rem; font-size: 0.78rem; color: var(--muted); }
+.bars { display: flex; gap: 4px; flex: none; }
+.bars i { width: 34px; height: 6px; border-radius: 99px; background: var(--line); transition: background 0.2s; }
+.bars i.on.s1 { background: var(--danger); }
+.bars i.on.s2 { background: #e0a030; }
+.bars i.on.s3, .bars i.on.s4 { background: var(--calm); }
+.code { font: 700 2rem ui-monospace, Consolas, monospace; letter-spacing: 0.5em; text-align: center; padding: 0.7rem 0.3rem 0.7rem 0.8rem; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+.how { text-align: left; margin: 0; padding-left: 1.2rem; font-size: 0.85rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.3rem; }
+.key { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; background: var(--bg); border-radius: 14px; padding: 0.7rem 0.8rem; }
+.key code { font: 700 0.95rem ui-monospace, Consolas, monospace; word-break: break-all; text-align: left; }
+.key button { flex: none; border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 999px; padding: 0.3rem 0.8rem; font-weight: 700; cursor: pointer; }
+.link { border: none; background: transparent; color: var(--accent); font-weight: 600; font-size: 0.85rem; cursor: pointer; text-decoration: none; padding: 0.2rem; }
+.fine2 { color: var(--muted); font-size: 0.72rem; text-align: center; margin: 0.4rem 0 0; }
+
+/* header with sign-out and five tabs */
+header { flex-direction: column; align-items: stretch; gap: 0.6rem; }
+header .top { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+header nav { width: 100%; justify-content: space-between; }
+header nav button { flex: 1; }
+.signout { border: 1px solid rgba(255, 255, 255, 0.5); background: rgba(255, 255, 255, 0.12); color: #fff; font-weight: 600; font-size: 0.75rem; padding: 0.3rem 0.75rem; border-radius: 999px; cursor: pointer; }
+.signout:hover { background: rgba(255, 255, 255, 0.25); }

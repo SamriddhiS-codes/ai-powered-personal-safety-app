@@ -13,6 +13,11 @@ CREATE TABLE users (
     password_hash   VARCHAR(255) NOT NULL,
     device_secret   VARCHAR(255) NOT NULL,      -- per-device HMAC signing key, issued at registration
     role            VARCHAR(20)  NOT NULL DEFAULT 'USER', -- USER, RESPONDER, ANALYST
+    totp_secret     VARCHAR(64),                          -- Base32 secret shared with the authenticator app
+    totp_enabled    BOOLEAN      NOT NULL DEFAULT false,  -- true once the first code has been confirmed
+    last_totp_step  BIGINT       NOT NULL DEFAULT -1,     -- last accepted 30-second step (stops code reuse)
+    failed_attempts INT          NOT NULL DEFAULT 0,      -- wrong passwords/codes since the last success
+    locked_until    TIMESTAMP,                            -- account is locked until this time
     created_at      TIMESTAMP NOT NULL DEFAULT now()
 );
 

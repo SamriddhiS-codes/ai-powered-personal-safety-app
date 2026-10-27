@@ -11,8 +11,10 @@ the backend calls the ML service internally.
 ### Auth
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/auth/register` | Create a user account, issues a `device_secret` (HMAC key) |
-| POST | `/auth/login` | Returns a short-lived JWT (standard session auth — **not** the security algorithm being graded) |
+| POST | `/auth/register` | Creates the account (bcrypt password hash) and returns the authenticator setup key plus a `setup` token |
+| POST | `/auth/register/confirm` | `{token, code}`: the first valid 6-digit code enables the second factor and logs in |
+| POST | `/auth/login` | `{email, password}`: on success returns `MFA_REQUIRED` and a short-lived `mfa` token |
+| POST | `/auth/login/verify` | `{token, code}`: a valid TOTP code returns the session JWT (HS256, 60 min). Send it as `Authorization: Bearer <jwt>` on every other `/api` call |
 
 ### Safety Sessions
 | Method | Endpoint | Description |
