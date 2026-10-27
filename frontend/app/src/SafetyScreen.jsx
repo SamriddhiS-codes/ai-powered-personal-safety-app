@@ -217,10 +217,28 @@ export default function SafetyScreen() {
 
   function watchLocation() {
     if (!navigator.geolocation) return;
+    // Until the first fresh fix arrives, fall back to the last position the app saw (kept by the Nearby tab),
+    // so an SOS raised in the first seconds still carries a location.
+    if (!pos.current) {
+      try {
+        const last = JSON.parse(localStorage.getItem("safety.lastpos") || "null");
+        if (last && typeof last.lat === "number") pos.current = last;
+      } catch {
+        /* no saved position */
+      }
+    }
     geo.current = navigator.geolocation.watchPosition(
-      (p) => (pos.current = { lat: p.coords.latitude, lon: p.coords.longitude }),
+      (p) => {
+        pos.current = { lat: p.coords.latitude, lon: p.coords.longitude };
+        try {
+          localStorage.setItem("safety.lastpos", JSON.stringify(pos.current));
+        } catch {
+          /* ignore */
+        }
+      },
       () => {},
-      { enableHighAccuracy: true }
+      // A laptop has no GPS, so high accuracy only makes the first fix slower.
+      { enableHighAccuracy: false, maximumAge: 30000, timeout: 15000 }
     );
     timers.current.ping = setInterval(() => {
       if (pos.current && sid.current)
