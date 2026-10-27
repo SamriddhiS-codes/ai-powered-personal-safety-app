@@ -84,3 +84,6 @@ export const register = (name, email, password) => call("/auth/register", json({
 export const confirmSetup = (token, code) => call("/auth/register/confirm", json({ token, code }));
 export const login = (email, password) => call("/auth/login", json({ email, password }));
 export const loginVerify = (token, code) => call("/auth/login/verify", json({ token, code }));
+
+// Whether the trusted contacts were emailed for an alert (the backend sends the emails in the background).
+export const getNotifications = (alertId) => call(`/alerts/${alertId}/notifications`);

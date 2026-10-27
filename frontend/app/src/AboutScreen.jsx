@@ -40,7 +40,7 @@ const STEPS = [
 
 const LIMITS = [
   "Login tokens are kept in the browser's local storage, which is simple but readable by scripts on the page. A production app would use secure, HTTP-only cookies. The nonce and lockout state live in memory or the database of a single server.",
-  "Trusted contacts are alerted through one-tap WhatsApp, SMS or email links that open on your own phone. There is no server-side SMS gateway, so the contact is not messaged until you tap send.",
+  "When an SOS is raised, trusted contacts with an email address are emailed automatically by the backend. SMS and WhatsApp need a paid gateway, so they stay as one-tap links that you press send on. Email depends on the mail server being reachable and set up.",
   "A spoken \"I'm fine\" cancels the check-in directly, because the tone model proved unreliable on real microphones. Tone is checked only on the \"Send voice for tone check\" button and when the countdown ends. A coerced \"I'm fine\" is a known limitation.",
   "The tone model is about 75% accurate on speakers it never heard (acted English speech). It is a proof of concept, which is why you can always cancel during the countdown.",
   "Real distress in Bengali or Hindi, in a noisy street, will sound different from the training data.",

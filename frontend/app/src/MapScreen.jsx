@@ -5,6 +5,20 @@ import "leaflet/dist/leaflet.css";
 import { distanceKm, nearestPolice } from "./police";
 
 const FALLBACK = { lat: 22.5726, lon: 88.3639 };
+const LAST_KEY = "safety.lastpos";
+
+// The last real position is remembered, so the map can appear at once instead of waiting for a fresh location fix.
+function lastKnown() {
+  try {
+    const p = JSON.parse(localStorage.getItem(LAST_KEY) || "null");
+    return p && typeof p.lat === "number" && typeof p.lon === "number" ? p : null;
+  } catch {
+    return null;
+  }
+}
+
+// Standard OpenStreetMap tiles (no key needed).
+const TILES = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 const dot = (cls) =>
   L.divIcon({
@@ -25,36 +39,52 @@ function Recenter({ pos, tick }) {
 }
 
 export default function MapScreen() {
-  const [pos, setPos] = useState(null);
+  const [initial] = useState(lastKnown);
+  const [pos, setPos] = useState(initial ?? FALLBACK);
+  const [located, setLocated] = useState(!!initial); // false until a real position (or a refusal) is known
   const [usingFallback, setUsingFallback] = useState(false);
   const [stations, setStations] = useState([]);
   const [status, setStatus] = useState("loading");
   const [tick, setTick] = useState(0);
+  const [retry, setRetry] = useState(0);
   const lastFetch = useRef(null);
+  const gotFix = useRef(false);
 
   useEffect(() => {
     if (!navigator.geolocation) {
-      setPos(FALLBACK);
       setUsingFallback(true);
+      setLocated(true);
       return;
     }
     const id = navigator.geolocation.watchPosition(
       (p) => {
+        const here = { lat: p.coords.latitude, lon: p.coords.longitude };
         setUsingFallback(false);
-        setPos({ lat: p.coords.latitude, lon: p.coords.longitude });
+        setPos(here);
+        setLocated(true);
+        if (!gotFix.current) {
+          gotFix.current = true;
+          setTick((t) => t + 1); // move the map to the real position once, without fighting the user's panning
+        }
+        try {
+          localStorage.setItem(LAST_KEY, JSON.stringify(here));
+        } catch {
+          /* ignore */
+        }
       },
       () => {
-        setPos((cur) => cur ?? FALLBACK);
         setUsingFallback(true);
+        setLocated(true);
       },
-      { enableHighAccuracy: true, maximumAge: 5000 }
+      // A laptop has no GPS, so asking for high accuracy only makes the first fix slower.
+      { enableHighAccuracy: false, maximumAge: 30000, timeout: 10000 }
     );
     return () => navigator.geolocation.clearWatch(id);
   }, []);
 
   // Only re-search when you have moved more than 500 m.
   useEffect(() => {
-    if (!pos) return;
+    if (!located) return; // wait for the real position, so only one search is made
     if (lastFetch.current && distanceKm(lastFetch.current, pos) < 0.5) return;
     lastFetch.current = pos;
     setStatus("loading");
@@ -64,9 +94,7 @@ export default function MapScreen() {
         setStatus("ok");
       })
       .catch(() => setStatus("error"));
-  }, [pos]);
-
-  if (!pos) return <p className="muted pad">Getting your location…</p>;
+  }, [pos, retry, located]);
 
   return (
     <div>
@@ -74,7 +102,9 @@ export default function MapScreen() {
         <MapContainer center={[pos.lat, pos.lon]} zoom={15} className="map" zoomControl={false}>
           <TileLayer
             attribution="&copy; OpenStreetMap contributors"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            url={TILES}
+            maxZoom={19}
+            keepBuffer={4}
           />
           <Recenter pos={pos} tick={tick} />
           <Marker position={[pos.lat, pos.lon]} icon={meIcon}>
@@ -96,15 +126,36 @@ export default function MapScreen() {
       </div>
 
       <section className="panel">
+        {!located && <p className="muted">Finding your exact location…</p>}
         {usingFallback && (
           <p className="note">
             Location is off, so this is a demo position. Allow location in your browser for real results.
           </p>
         )}
         <h2>Nearest police stations</h2>
-        {status === "loading" && <p className="muted">Searching OpenStreetMap…</p>}
+        {status === "loading" && (
+          <>
+            <p className="muted">Searching OpenStreetMap… the first search can take a few seconds.</p>
+            <ul className="stations">
+              {[0, 1, 2].map((i) => (
+                <li key={i} className="skel" aria-hidden="true" />
+              ))}
+            </ul>
+          </>
+        )}
         {status === "error" && (
-          <p className="note">Couldn’t load stations. Check your internet connection and reload.</p>
+          <p className="note">
+            Couldn’t load stations. The map servers may be busy.{" "}
+            <button
+              className="linkbtn"
+              onClick={() => {
+                lastFetch.current = null;
+                setRetry((n) => n + 1);
+              }}
+            >
+              Try again
+            </button>
+          </p>
         )}
         {status === "ok" && stations.length === 0 && (
           <p className="muted">

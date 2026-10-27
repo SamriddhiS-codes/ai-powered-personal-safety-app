@@ -17,6 +17,19 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  mail:
+    # Emails to trusted contacts are sent through this SMTP account. Set MAIL_USERNAME and MAIL_PASSWORD
+    # (for Gmail, an "app password"). Without them the app still works and just skips the emails.
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 8000
+      mail.smtp.timeout: 8000
+      mail.smtp.writetimeout: 8000
   servlet:
     multipart:
       max-file-size: 5MB

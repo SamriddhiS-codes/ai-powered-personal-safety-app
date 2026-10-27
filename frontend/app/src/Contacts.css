@@ -28,3 +28,17 @@
 /* five tabs: let the header wrap on narrow screens */
 header { flex-wrap: wrap; }
 @media (max-width: 440px) { header nav { width: 100%; justify-content: space-between; } nav button { flex: 1; } }
+
+/* loading placeholders for the police list */
+.skel { height: 58px; border-radius: 16px; border: none !important; background: linear-gradient(90deg, var(--bg) 25%, var(--line) 50%, var(--bg) 75%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.linkbtn { border: none; background: transparent; color: var(--accent); font-weight: 700; cursor: pointer; padding: 0; text-decoration: underline; }
+
+/* grey shimmer behind the map so it never looks blank while tiles load */
+.map { background: linear-gradient(90deg, var(--bg) 25%, var(--line) 50%, var(--bg) 75%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+.map .leaflet-tile-pane { background: var(--bg); }
+
+.mailrow { margin: 0; font-size: 0.85rem; padding: 0.5rem 0.7rem; border-radius: 12px; background: var(--surface); }
+.mailrow.sent { color: var(--calm); }
+.mailrow.failed { color: var(--danger); }
+.mailrow small { color: var(--muted); }

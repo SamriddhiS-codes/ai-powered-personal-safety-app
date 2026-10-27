@@ -121,6 +121,7 @@ export default function SafetyScreen() {
   const [verify, setVerify] = useState(null);
   const [verifying, setVerifying] = useState(false);
   const [contacts, setContacts] = useState(null);
+  const [sent, setSent] = useState([]); // automatic emails to trusted contacts: outcome per contact
 
   const modeRef = useRef("idle");
   const sid = useRef(null);
@@ -203,6 +204,7 @@ export default function SafetyScreen() {
   function stopAll() {
     clearInterval(timers.current.chunk);
     clearInterval(timers.current.ping);
+    clearTimeout(timers.current.mail);
     clearInterval(timers.current.cd);
     stopWordCheck();
     if (geo.current != null) navigator.geolocation.clearWatch(geo.current);
@@ -232,6 +234,7 @@ export default function SafetyScreen() {
     setAlert(null);
     setLast(null);
     setContacts(null);
+    setSent([]);
     setHistory([]);
     setVerify(null);
     scoreRef.current = null;
@@ -397,12 +400,31 @@ export default function SafetyScreen() {
     }
   }
 
+  // The backend emails the trusted contacts in the background; check a few times to show the outcome.
+  function watchEmails(id) {
+    let tries = 0;
+    const tick = async () => {
+      tries++;
+      try {
+        const list = await api.getNotifications(id);
+        setSent(list);
+        if (list.some((r) => r.status === "SENDING") || (list.length === 0 && tries < 3)) {
+          if (tries < 12) timers.current.mail = setTimeout(tick, 1500);
+        }
+      } catch {
+        /* the status is a bonus; the SOS itself is already raised */
+      }
+    };
+    timers.current.mail = setTimeout(tick, 800);
+  }
+
   async function showAlert(id) {
     clearInterval(timers.current.chunk);
     rec.current?.stop();
     rec.current = null;
     go("alert");
     api.listContacts().then(setContacts).catch(() => setContacts([]));
+    if (id) watchEmails(id);
     try {
       setAlert(id ? await api.getAlert(id) : null);
     } catch (e) {
@@ -554,6 +576,19 @@ export default function SafetyScreen() {
           )}
           <div className="card notify">
             <b className="notify-title">👥 Alert your trusted contacts</b>
+            {sent.map((r) => (
+              <p key={r.contactName + r.maskedEmail} className={"mailrow " + r.status.toLowerCase()}>
+                {r.status === "SENT" && "✅ Emailed "}
+                {r.status === "SENDING" && "⏳ Emailing "}
+                {r.status === "FAILED" && "⚠️ Email failed for "}
+                {r.status === "NOT_CONFIGURED" && "ℹ️ Email not set up for "}
+                <b>{r.contactName}</b> ({r.maskedEmail})
+                {r.status === "NOT_CONFIGURED" && <small> Use the buttons below instead.</small>}
+              </p>
+            ))}
+            {contacts && contacts.length > 0 && sent.length === 0 && (
+              <p className="muted">Contacts with an email address are emailed automatically. Use the buttons for WhatsApp or SMS.</p>
+            )}
             {contacts == null && <p className="muted">Loading contacts…</p>}
             {contacts && contacts.length === 0 && (
               <p className="muted">No trusted contacts saved yet. Add some in the Contacts tab.</p>

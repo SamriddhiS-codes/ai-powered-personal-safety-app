@@ -33,6 +33,7 @@ the backend calls the ML service internally.
 | POST | `/alerts/{id}/verify` | Re-verifies a stored alert (timestamp, then signature, then nonce). First call returns `VERIFIED` and uses up the nonce; a second call returns `REJECTED_REPLAY`. Optional `?tamper=payload\|signature\|timestamp\|stale` simulates a modified alert for demos and tests. The stored alert's own status is never changed by this call. |
 | GET  | `/alerts` | List alerts (responder/analyst dashboard) — supports `?status=VERIFIED\|REJECTED_REPLAY\|...` |
 | GET  | `/alerts/{id}` | Alert detail incl. confidence scores, location, verification status |
+| GET  | `/alerts/{id}/notifications` | Outcome of the automatic emails to the user's trusted contacts: `SENDING`, `SENT`, `FAILED` or `NOT_CONFIGURED` per contact |
 
 ### Trusted Contacts
 | Method | Endpoint | Description |

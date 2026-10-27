@@ -23,13 +23,16 @@ public class AlertService {
     private final AlertRepository alertRepository;
     private final UserRepository userRepository;
     private final AlertSigningService signingService;
+    private final NotificationService notifications;
     private final ObjectMapper objectMapper = new ObjectMapper();
  
     public AlertService(AlertRepository alertRepository, UserRepository userRepository,
-                         AlertSigningService signingService) {
+                         AlertSigningService signingService,
+                         NotificationService notifications) {
         this.alertRepository = alertRepository;
         this.userRepository = userRepository;
         this.signingService = signingService;
+        this.notifications = notifications;
     }
  
     /**
@@ -59,7 +62,10 @@ public class AlertService {
                 ? Alert.VerificationStatus.VERIFIED
                 : Alert.VerificationStatus.REJECTED_INVALID_SIGNATURE);
  
-        return alertRepository.save(alert);
+        Alert saved = alertRepository.save(alert);
+        // Tell the user's trusted contacts. This runs in the background and can never make the SOS itself fail.
+        notifications.notifyContacts(saved, user);
+        return saved;
     }
  
     /** Re-verifies a previously stored alert — used by black-box replay/tamper tests. */
