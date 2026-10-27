@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Recorder } from "./audio";
 import * as api from "./api";
 import "./Safety.css";
+import { linksFor } from "./contactLinks";
 
 const pct = (x) => (x == null ? "n/a" : Math.round(x * 100) + "%");
 
@@ -119,6 +120,7 @@ export default function SafetyScreen() {
   const [history, setHistory] = useState([]); // scream scores of recent 4-second checks
   const [verify, setVerify] = useState(null);
   const [verifying, setVerifying] = useState(false);
+  const [contacts, setContacts] = useState(null);
 
   const modeRef = useRef("idle");
   const sid = useRef(null);
@@ -229,6 +231,7 @@ export default function SafetyScreen() {
     setWhy("");
     setAlert(null);
     setLast(null);
+    setContacts(null);
     setHistory([]);
     setVerify(null);
     scoreRef.current = null;
@@ -399,6 +402,7 @@ export default function SafetyScreen() {
     rec.current?.stop();
     rec.current = null;
     go("alert");
+    api.listContacts().then(setContacts).catch(() => setContacts([]));
     try {
       setAlert(id ? await api.getAlert(id) : null);
     } catch (e) {
@@ -548,6 +552,25 @@ export default function SafetyScreen() {
           ) : (
             <p className="muted">Loading alert details…</p>
           )}
+          <div className="card notify">
+            <b className="notify-title">👥 Alert your trusted contacts</b>
+            {contacts == null && <p className="muted">Loading contacts…</p>}
+            {contacts && contacts.length === 0 && (
+              <p className="muted">No trusted contacts saved yet. Add some in the Contacts tab.</p>
+            )}
+            {(contacts || []).map((c) => (
+              <div className="nrow" key={c.id}>
+                <span>{c.name}</span>
+                <div className="nlinks">
+                  {linksFor(c, alert).map((l) => (
+                    <a key={l.key} className={l.key} href={l.href} target="_blank" rel="noreferrer">
+                      {l.label}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
           {alert && (
             <div className="card sec">
               <b className="sec-title">🔐 Security details</b>

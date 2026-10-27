@@ -1,0 +1,30 @@
+.contacts { padding: 1.3rem 1.2rem 2.2rem; display: flex; flex-direction: column; gap: 1.1rem; }
+.contacts h2 { margin: 0 0 0.3rem; font-size: 1.35rem; }
+.clist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.clist li { display: flex; align-items: center; gap: 0.8rem; border: 1px solid var(--line); border-radius: 16px; padding: 0.7rem 0.9rem; }
+.av { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 0.85rem; color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+.who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.who small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.x { border: none; background: transparent; color: var(--muted); font-size: 1rem; cursor: pointer; padding: 0.4rem; border-radius: 8px; }
+.x:hover { color: var(--danger); background: rgba(224, 69, 58, 0.1); }
+.empty { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; padding: 1.4rem 1rem; border: 1px dashed var(--line); border-radius: 18px; text-align: center; }
+.empty span { font-size: 1.8rem; }
+.empty small { color: var(--muted); }
+.cform { gap: 0.6rem; }
+.cform input { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 0.7rem 0.8rem; }
+.cform input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+
+/* "Alert your trusted contacts" panel on the SOS screen */
+.notify { text-align: left; }
+.notify-title { font-size: 0.95rem; }
+.nrow { display: flex; flex-direction: column; gap: 0.4rem; padding-top: 0.5rem; border-top: 1px solid var(--line); }
+.nrow:first-of-type { border-top: none; padding-top: 0; }
+.nrow > span { font-weight: 600; font-size: 0.9rem; }
+.nlinks { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.nlinks a { text-decoration: none; font-size: 0.8rem; font-weight: 700; padding: 0.4rem 0.8rem; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); }
+.nlinks a.wa { background: #25d366; border-color: #25d366; color: #fff; }
+.nlinks a:hover { filter: brightness(1.08); }
+
+/* five tabs: let the header wrap on narrow screens */
+header { flex-wrap: wrap; }
+@media (max-width: 440px) { header nav { width: 100%; justify-content: space-between; } nav button { flex: 1; } }
