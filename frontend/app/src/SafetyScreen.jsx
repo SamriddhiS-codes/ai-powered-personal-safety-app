@@ -629,17 +629,29 @@ export default function SafetyScreen() {
           <div className="card notify">
             <b className="notify-title">👥 Alert your trusted contacts</b>
             {sent.map((r) => (
-              <p key={r.contactName + r.maskedEmail} className={"mailrow " + r.status.toLowerCase()}>
-                {r.status === "SENT" && "✅ Emailed "}
-                {r.status === "SENDING" && "⏳ Emailing "}
-                {r.status === "FAILED" && "⚠️ Email failed for "}
-                {r.status === "NOT_CONFIGURED" && "ℹ️ Email not set up for "}
+              <p key={r.contactName + r.maskedEmail + r.channel} className={"mailrow " + r.status.toLowerCase()}>
+                {r.channel === "WHATSAPP" ? (
+                  <>
+                    {r.status === "SENT" && "✅ WhatsApp sent to "}
+                    {r.status === "SENDING" && "⏳ Sending WhatsApp to "}
+                    {r.status === "FAILED" && "⚠️ WhatsApp failed for "}
+                    {r.status === "NOT_CONFIGURED" && "ℹ️ WhatsApp not set up for "}
+                  </>
+                ) : (
+                  <>
+                    {r.status === "SENT" && "✅ Emailed "}
+                    {r.status === "SENDING" && "⏳ Emailing "}
+                    {r.status === "FAILED" && "⚠️ Email failed for "}
+                    {r.status === "NOT_CONFIGURED" && "ℹ️ Email not set up for "}
+                  </>
+                )}
                 <b>{r.contactName}</b> ({r.maskedEmail})
                 {r.status === "NOT_CONFIGURED" && <small> Use the buttons below instead.</small>}
+                {r.status === "FAILED" && r.detail && <small> {r.detail}</small>}
               </p>
             ))}
             {contacts && contacts.length > 0 && sent.length === 0 && (
-              <p className="muted">Contacts with an email address are emailed automatically. Use the buttons for WhatsApp or SMS.</p>
+              <p className="muted">Contacts are emailed and sent a WhatsApp message automatically when those are set up. The buttons below send manually.</p>
             )}
             {contacts == null && <p className="muted">Loading contacts…</p>}
             {contacts && contacts.length === 0 && (
