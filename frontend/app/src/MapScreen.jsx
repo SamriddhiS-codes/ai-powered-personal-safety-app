@@ -47,11 +47,15 @@ export default function MapScreen() {
   const [status, setStatus] = useState("loading");
   const [tick, setTick] = useState(0);
   const [retry, setRetry] = useState(0);
+  const [geoErr, setGeoErr] = useState(null); // why location failed (1 blocked, 2 unavailable, 3 timeout, 0 unsupported)
+  const [geoTry, setGeoTry] = useState(0);
   const lastFetch = useRef(null);
   const gotFix = useRef(false);
 
   useEffect(() => {
+    setGeoErr(null);
     if (!navigator.geolocation) {
+      setGeoErr(0);
       setUsingFallback(true);
       setLocated(true);
       return;
@@ -59,6 +63,7 @@ export default function MapScreen() {
     const id = navigator.geolocation.watchPosition(
       (p) => {
         const here = { lat: p.coords.latitude, lon: p.coords.longitude };
+        setGeoErr(null);
         setUsingFallback(false);
         setPos(here);
         setLocated(true);
@@ -72,15 +77,16 @@ export default function MapScreen() {
           /* ignore */
         }
       },
-      () => {
+      (err) => {
+        setGeoErr(err.code);
         setUsingFallback(true);
         setLocated(true);
       },
       // A laptop has no GPS, so asking for high accuracy only makes the first fix slower.
-      { enableHighAccuracy: false, maximumAge: 30000, timeout: 10000 }
+      { enableHighAccuracy: false, maximumAge: 30000, timeout: 20000 }
     );
     return () => navigator.geolocation.clearWatch(id);
-  }, []);
+  }, [geoTry]);
 
   // Only re-search when you have moved more than 500 m.
   useEffect(() => {
@@ -128,9 +134,22 @@ export default function MapScreen() {
       <section className="panel">
         {!located && <p className="muted">Finding your exact location…</p>}
         {usingFallback && (
-          <p className="note">
-            Location is off, so this is a demo position. Allow location in your browser for real results.
-          </p>
+          <div className="note">
+            <p style={{ margin: "0 0 0.5rem" }}>
+              {!window.isSecureContext
+                ? "Location only works on localhost or https. Open the app at http://localhost:5173 (not an IP address)."
+                : geoErr === 1
+                ? "Your browser is blocking location for this site. Click the icon left of the address bar, set Location to Allow, then press Try again."
+                : geoErr === 2
+                ? "Your device couldn't work out where it is. Turn on Windows Location services (Settings > Privacy & security > Location), turn off any VPN, then press Try again."
+                : geoErr === 3
+                ? "Finding your position took too long. Press Try again."
+                : "Location is off, so this is a demo position. Allow location in your browser for real results."}
+            </p>
+            <button className="btn" onClick={() => { gotFix.current = false; setLocated(false); setGeoTry((n) => n + 1); }}>
+              Try again
+            </button>
+          </div>
         )}
         <h2>Nearest police stations</h2>
         {status === "loading" && (

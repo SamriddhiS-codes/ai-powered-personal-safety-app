@@ -1,3 +1,4 @@
+import * as Icon from "./Icons";
 import { useEffect, useRef, useState } from "react";
 import { Recorder } from "./audio";
 import * as api from "./api";
@@ -15,11 +16,11 @@ const HELP_PHRASE = /\b(help|save me|leave me alone|let me go)\b/;
 const NOT_HELP = /\b(don'?t|do not|no|not|without)\s+(need\s+)?(any\s+)?help\b/;
 
 const STEPS = [
-  ["🎙️", "Listening"],
-  ["🧠", "Distress"],
-  ["⏱️", "Check-in"],
-  ["🎭", "Tone"],
-  ["🔏", "Signed SOS"],
+  [<Icon.Mic size={18} />, "Listening"],
+  [<Icon.Brain size={18} />, "Distress"],
+  [<Icon.Clock size={18} />, "Check-in"],
+  [<Icon.Tone size={18} />, "Tone"],
+  [<Icon.Lock size={18} />, "Signed SOS"],
 ];
 
 // Lights up as the SOS pipeline moves from sound to a signed alert.
@@ -110,6 +111,7 @@ async function demoFile(name) {
 export default function SafetyScreen() {
   const [mode, setMode] = useState("idle"); // idle | listening | checkin | sending | alert
   const [msg, setMsg] = useState("");
+  const [geoWarn, setGeoWarn] = useState(false); // true when the browser gives us no location
   const [why, setWhy] = useState("");
   const [left, setLeft] = useState(0);
   const [level, setLevel] = useState({ rms: 0, peak: 0 });
@@ -216,7 +218,11 @@ export default function SafetyScreen() {
   useEffect(() => () => stopAll(), []);
 
   function watchLocation() {
-    if (!navigator.geolocation) return;
+    setGeoWarn(false);
+    if (!navigator.geolocation) {
+      setGeoWarn(true);
+      return;
+    }
     // Until the first fresh fix arrives, fall back to the last position the app saw (kept by the Nearby tab),
     // so an SOS raised in the first seconds still carries a location.
     if (!pos.current) {
@@ -230,13 +236,16 @@ export default function SafetyScreen() {
     geo.current = navigator.geolocation.watchPosition(
       (p) => {
         pos.current = { lat: p.coords.latitude, lon: p.coords.longitude };
+        setGeoWarn(false);
+        // Tell the server straight away, so an early SOS still carries a location.
+        if (sid.current) api.ping(sid.current, pos.current.lat, pos.current.lon).catch(() => {});
         try {
           localStorage.setItem("safety.lastpos", JSON.stringify(pos.current));
         } catch {
           /* ignore */
         }
       },
-      () => {},
+      () => setGeoWarn(true),
       // A laptop has no GPS, so high accuracy only makes the first fix slower.
       { enableHighAccuracy: false, maximumAge: 30000, timeout: 15000 }
     );
@@ -244,6 +253,8 @@ export default function SafetyScreen() {
       if (pos.current && sid.current)
         api.ping(sid.current, pos.current.lat, pos.current.lon).catch(() => {});
     }, 10000);
+    // Send the last known position right now instead of waiting 10 s for the first timer tick.
+    if (pos.current && sid.current) api.ping(sid.current, pos.current.lat, pos.current.lon).catch(() => {});
   }
 
   async function start() {
@@ -280,6 +291,8 @@ export default function SafetyScreen() {
     const wav = rec.current.take();
     if (!wav) return;
     busy.current = true;
+    // Refresh the server's copy of our position with every check, so an AI alert always has a fresh location.
+    if (pos.current && sid.current) api.ping(sid.current, pos.current.lat, pos.current.lon).catch(() => {});
     try {
       const r = await api.audioChunk(sid.current, wav);
       record(r.distressConfidence);
@@ -483,19 +496,40 @@ export default function SafetyScreen() {
     <div className="safety">
       <Pipeline mode={mode} />
       {mode === "idle" && (
-        <div className="center">
-          <p className="muted">Tap once. It listens only while Safety Mode is on.</p>
+        <div className="center hero">
           <h2>Feeling unsafe?</h2>
-          <button className="big" onClick={start}>
-            Activate
-          </button>
+          <p className="muted">Tap once. It listens only while Safety Mode is on.</p>
+          <div className="radar">
+            <span /><span /><span />
+            <button className="big" onClick={start}>
+              <Icon.Shield size={38} />
+              Activate
+            </button>
+          </div>
+          <ul className="chips">
+            <li><Icon.Mic size={14} /> Listens only when on</li>
+            <li><Icon.Lock size={14} /> Signed, tamper-proof SOS</li>
+            <li><Icon.Users size={14} /> Alerts your contacts</li>
+          </ul>
+          <div className="quick">
+            <a href="tel:112"><Icon.Phone size={18} /><span><b>112</b>Emergency</span></a>
+            <a href="tel:1091"><Icon.Phone size={18} /><span><b>1091</b>Women helpline</span></a>
+          </div>
         </div>
       )}
 
       {mode === "listening" && (
         <div className="center">
           <h2>Safety Mode is on</h2>
-          <p className="muted">Microphone: {micName}. Location is shared while active.</p>
+          {geoWarn && !pos.current ? (
+            <p className="note">
+              Location isn’t available, so alerts to your contacts will say “Location: not shared”. Click the icon left of
+              the address bar, set Location to Allow, and reload. Also open the app at the same address each time
+              (for example always http://localhost:5173).
+            </p>
+          ) : (
+            <p className="muted">Microphone: {micName}. Location is shared while active.</p>
+          )}
           <Meter level={level} />
           {silent && (
             <p className="note">

@@ -11,6 +11,7 @@ import com.ascenddevs.safetyapp.repository.SafetySessionRepository;
 import com.ascenddevs.safetyapp.repository.UserRepository;
 import com.ascenddevs.safetyapp.security.AdaptiveRateLimiter;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -200,7 +201,12 @@ public class SessionService {
             return new CheckinResponse(decision.name(), false, tone, toneConfidence, null, session.getStatus().name());
         }
 
-        Optional<LocationPing> last = pings.findFirstBySessionIdOrderByRecordedAtDesc(sessionId);
+        Optional<LocationPing> sessionPing = pings.findFirstBySessionIdOrderByRecordedAtDesc(sessionId);
+        // No ping yet in this session (an early SOS)? Use the user's most recent known position
+        // instead of telling contacts "Location: not shared".
+        Optional<LocationPing> last = sessionPing.isPresent()
+                ? sessionPing
+                : pings.findRecentForUser(session.getUserId(), PageRequest.of(0, 1)).stream().findFirst();
         Alert alert = alertService.raiseAlert(new AlertRequest(
                 sessionId,
                 session.getUserId(),
