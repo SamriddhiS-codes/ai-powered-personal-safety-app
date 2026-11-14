@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as Icon from "./Icons";
+import Guardian from "./Guardian";
 import "./Helpline.css";
 
 // Scripted (not AI-generated) on purpose: in an emergency every answer must be verified and predictable.
@@ -142,7 +143,7 @@ export default function Helpline({ onNavigate }) {
       {open && (
         <section className="hl-panel" role="dialog" aria-label="Safety helper">
           <div className="hl-head">
-            <span className="hl-ava"><Icon.Lifebuoy size={20} /></span>
+            <span className="hl-ava char"><Guardian size={38} mood={typing ? "talk" : "idle"} /></span>
             <div>
               <b>Safety Helper</b>
               <small>Verified helplines, always on</small>
@@ -191,9 +192,13 @@ export default function Helpline({ onNavigate }) {
           </form>
         </section>
       )}
-      <button className={"hl-fab" + (open ? " off" : "")} onClick={() => setOpen(true)} aria-label="Open safety helper">
-        <Icon.Chat size={24} />
-        <span>Help</span>
+      <button
+        className={"hl-fab has-char" + (open ? " off" : "")}
+        onClick={() => setOpen(true)}
+        aria-label="Open safety helper"
+      >
+        <span className="gd-hi">Need help?</span>
+        <Guardian size={62} />
       </button>
     </>
   );

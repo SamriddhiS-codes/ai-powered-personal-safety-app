@@ -1,0 +1,49 @@
+.gd { display: block; overflow: visible; }
+
+.gd-shadow { fill: rgba(0, 0, 0, 0.18); transform-origin: 50px 105px; animation: gd-shadow 3s ease-in-out infinite; }
+.gd-float { animation: gd-float 3s ease-in-out infinite; }
+@keyframes gd-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes gd-shadow { 0%, 100% { transform: scaleX(1); opacity: 1; } 50% { transform: scaleX(0.85); opacity: 0.7; } }
+
+.gd-eyes { transform-origin: 50px 50px; animation: gd-blink 4.5s infinite; }
+@keyframes gd-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+
+.gd-wave { transform-origin: 85px 62px; animation: gd-wave 5s ease-in-out infinite; }
+@keyframes gd-wave {
+  0%, 70%, 100% { transform: rotate(0); }
+  74% { transform: rotate(-20deg); }
+  78% { transform: rotate(14deg); }
+  82% { transform: rotate(-20deg); }
+  86% { transform: rotate(14deg); }
+  90% { transform: rotate(0); }
+}
+.hl-fab:hover .gd-wave { animation: gd-wave-fast 0.45s ease-in-out infinite alternate; }
+@keyframes gd-wave-fast { from { transform: rotate(-22deg); } to { transform: rotate(16deg); } }
+
+.gd-talk-mouth { display: none; transform-origin: 50px 66px; }
+.gd-talk .gd-smile { display: none; }
+.gd-talk .gd-talk-mouth { display: block; animation: gd-talk 0.28s ease-in-out infinite alternate; }
+@keyframes gd-talk { from { transform: scaleY(0.3); } to { transform: scaleY(1.1); } }
+
+.hl-fab.has-char {
+  background: none; box-shadow: none; border-radius: 0; padding: 0; overflow: visible;
+  width: 66px; height: 74px;
+  filter: drop-shadow(0 8px 14px rgba(20, 90, 65, 0.35));
+}
+.hl-fab.has-char:hover { transform: translateY(-3px) scale(1.04); }
+.hl-fab .gd-hi {
+  display: block; position: absolute; right: 100%; bottom: 55%; margin-right: 0.4rem;
+  background: var(--surface, #fff); color: var(--ink, #171a2e);
+  border: 1px solid var(--line, #e2e0d6); border-radius: 14px 14px 4px 14px;
+  padding: 0.4rem 0.7rem; font-size: 0.78rem; font-weight: 600; line-height: 1.2; white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15); opacity: 0; pointer-events: none;
+  animation: gd-hi 9s ease both 1.2s;
+}
+@keyframes gd-hi { 0% { opacity: 0; transform: translateY(6px); } 8%, 70% { opacity: 1; transform: none; } 82%, 100% { opacity: 0; } }
+
+.hl-ava.char { background: none; width: auto; height: auto; overflow: visible; display: flex; align-items: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gd, .gd *, .hl-fab .gd-hi { animation: none !important; }
+  .hl-fab .gd-hi { opacity: 1; }
+}
